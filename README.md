@@ -1,1 +1,3 @@
-# k8s-lab
+# Laboratório prático de Kubernetes vanila
+
+Esse repositório tem o objetivo de compilar meus aprendizados práticos de Kubernetes, como uma forma de "licença poética" usarei muitas vezes linguagem informal e descontraída ao longo de minhas constatações, portanto não encare esse repositório como um estudo de caso acadêmico, o único objetivo é consolidar aprendizados enquanto me divirto um pouco com o K8s. Dito isso, espero que você que está olhando esse repositório sinta-se a vontade para me acompanhar em meus devaneios...
