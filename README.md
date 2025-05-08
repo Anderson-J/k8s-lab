@@ -247,20 +247,121 @@ Também criarei um arquivo yaml com as primeiras especificações de configuraç
 mkdir -p /root/cluster/kubeadm && kubeadm config print init-defaults > kubeadm-config.yaml
 ```
 
-Após o download das imagens, em teoria podemos, finalmente iniciar o provisionamento do cluster kubernetes
+O modelo do arquivo de configurações iniciais precisou ser modificado de acordo com meu ambiente e minhas necessidade e no final ficou ficou assim:
 
+```yaml
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+bootstrapTokens: 
+- groups:
+  - system:bootstrappers:kubeadm:default-node-token
+  ttl: 24h0m0s
+  usages:
+  - signing
+  - authentication
+localAPIEndpoint:
+  advertiseAddress: 172.20.10.221
+  bindPort: 6443
+nodeRegistration:
+  criSocket: unix:///run/containerd/containerd.sock
+  imagePullPolicy: IfNotPresent
+  imagePullSerial: true
+  name: US-KCP-01 
+timeouts:
+  controlPlaneComponentHealthCheck: 4m0s
+  discovery: 5m0s
+  etcdAPICall: 2m0s
+  kubeletHealthCheck: 4m0s
+  kubernetesAPICall: 1m0s
+  tlsBootstrap: 5m0s
+  upgradeManifests: 5m0s
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+apiServer: {}
+caCertificateValidityPeriod: 87600h0m0s
+certificateValidityPeriod: 8760h0m0s
+certificatesDir: /etc/kubernetes/pki
+clusterName: US-KCP-01 
+controllerManager: {}
+dns: {}
+encryptionAlgorithm: RSA-2048
+etcd:
+  local:
+    dataDir: /var/lib/etcd
+imageRepository: registry.k8s.io
+kubernetesVersion: v1.33.0
+networking:
+  dnsDomain: lab.local
+  serviceSubnet: 10.96.0.0/12
+  podSubnet: 10.244.0.0/16
+proxy: {}
+scheduler: {}
+kubeletConfiguration:
+  apiVersion: kubelet.config.k8s.io/v1beta1
+  kind: KubeletConfiguration
+  cgroupDriver: systemd
+```
+
+Importante ressaltar que defini o `systemd` como driver `cgroup` no final do yaml, conforme especificado em etapa anterior com o comando `stat -fc %T /sys/fs/cgroup/` a saída desse comando foi `cgroup2fs`, portanto o recomendado nesse caso é que seja utilizado o `systemd` como driver de `cgroup`.
+
+Após o download das imagens e com o arquivo `kubeadm-config.yaml` configurado, em teoria podemos, finalmente iniciar o provisionamento do cluster kubernetes
 
 ## Agora é a hora! Up and Running
 
+Com tudo pronto e na pasta onde se encontra o arquivo `kube-config.yaml`, `/root/cluster/kubeadm`, utilizei o comando:
+
+```shell
+sudo kubeadm init --config kubeadm-config.yaml
+```
+
+Após isso, obtive sucesso ao provisionar o cluster, e comecei a seguir as instruções no output de sucesso:
+
+```shell
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+
+Em caso de usuário root:
+
+```shell
+export KUBECONFIG=/etc/kubernetes/admin.conf
+```
+
+Como recomendação da saída, a próxima etapa será adicionar um addon para a comunicação de redes entre pods, mais a frente utilizarei o `calico`, mas antes disso, é importante saber que já existem pods rodando no cluster, inclusive pods que não estão funcionando devido a ausencia do addon de rede, utilizando o comando:
+
+```shell
+kubectl get pods -A
+```
+
+A saída esperada é a seguinte:
+
+| NAMESPACE   | NAME                              | READY | STATUS  | RESTARTS  | AGE |
+|-------------|-----------------------------------|-------|---------|-----------|-----|
+| kube-system | coredns-674b8bbfcf-cg685          | 0/1   | Pending | 0         | 16m |
+| kube-system | coredns-674b8bbfcf-wvfwm          | 0/1   | Pending | 0         | 16m |
+| kube-system | etcd-us-kcp-01                    | 1/1   | Running | 0         | 16m |
+| kube-system | kube-apiserver-us-kcp-01          | 1/1   | Running | 0         | 16m |
+| kube-system | kube-controller-manager-us-kcp-01 | 1/1   | Running | 0         | 16m |
+| kube-system | kube-proxy-snnhr                  | 1/1   | Running | 0         | 16m |
+| kube-system | kube-scheduler-us-kcp-01          | 1/1   | Running | 0         | 16m |
+
+## Começando os trabalhos...
+
+Continuando com o que falamos antes, é necessário adicionar um addon de rede para a comunicação entre os pods, escolhemos o `calico` para desempenhar essa tarefa, portanto pretendo tratar da instalação do `calico`.
 
 
 
 
-Para definir o `systemd` como driver `cgroup`, edite configuração do Kubelet opção:
+```txt
 
-```yaml
-apiVersion: kubelet.config.k8s.io/v1beta1
-kind: KubeletConfiguration
-...
-cgroupDriver: systemd
+You should now deploy a pod network to the cluster.
+Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  https://kubernetes.io/docs/concepts/cluster-administration/addons/
+
+Then you can join any number of worker nodes by running the following on each as root:
+
+kubeadm join 172.20.10.221:6443 --token x25yuq.x3e8jm84cqwkj11e \
+        --discovery-token-ca-cert-hash sha256:b7017a6f87562a8cf6c10a775acf6ac4b36bc693282346b1b6a3e3ff9a59d1fa
 ```
