@@ -4,7 +4,7 @@
 
 Esse repositório tem o objetivo de compilar meus aprendizados práticos de Kubernetes, sabendo disso, como uma forma de "licença poética" usarei muitas vezes linguagem informal e descontraída ao longo de minhas constatações, portanto não encare esse repositório como um estudo de caso acadêmico, o único objetivo é consolidar aprendizados enquanto me divirto um pouco com o K8s. Dito isso, espero que você que está olhando esse repositório sinta-se a vontade para me acompanhar em meus devaneios...
 
-## Provisionando um cluster kubernetes do zero, o início da jornada
+## Provisionando um cluster kubernetes do zero, pré-requisitos
 
 Para iniciar esse laboratório começarei com uma VM linux com as seguintes especificações:
 
@@ -90,16 +90,73 @@ wget https://github.com/containerd/containerd/releases/download/v2.1.0/container
 tar Cxzvf /usr/local containerd-2.1.0-linux-amd64.tar.gz && install -m 755 runc.amd64 /usr/local/sbin/runc && mkdir -p /opt/cni/bin && tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v1.7.1.tgz
 ```
 
+Já para o outro pré-requisito onde ue precisei descobrir qual é o sistema `cgroup` nativo da distribuição utilizei o comando abaixo:
 
-
-Para descobrir qual é o sistema `cgroup` nativo da sua distribuição utilize o comando:
 ```shell
-stat -fc %T /sys/fs/cgroup/
+stat -fc %T /sys/fs/cgroup/ # cgroup2fs
 ```
 
+## Provisionando um cluster kubernetes do zero, o início da jornada
 
+As principais formas de provisionamento de um cluster Kubernetes no momento que escrevo essa documentação são:
 
-Para definir systemdcomo driver cgroup, edite a KubeletConfiguration opção de cgroupDrivere defina-a como systemd conforme exemplo:
+- kubeadm (Modo de instalação padrão)
+- Cluster API: (Um subprojeto do Kubernetes focado em fornecer APIs declarativas e ferramentas para simplificar o provisionamento, a atualização e a operação de vários clusters do Kubernetes)
+- kops: (Uma ferramenta automatizada de provisionamento de cluster)
+- kubespray: Uma coleção de playbooks Ansible , inventários e ferramentas de provisionamento.
+
+Apesar de a opção do `kops` parecer muito simplificada e atrativa, vou optar inicialmente pelo `kubeadm` no momento da escrita desse documento eu estou pensando em futuramente provisionar mais dois nós de control plane para testes de alta disponibilidade, acho que será interessante ver se há compatibilidade de provisionamento com recursos de bootstraping diferentes, bem... Não pretendo remover esse disclaimer, além de estar versionado com esse pensamento, então, se ver outras formas de provisionamento mais a frente saiba que minha curiosidade me venceu hehehe!
+
+Continuando...
+
+A versão do `kubeadm` que será instalada é a v1.33, e tem como requisitos necessários:
+
+- Um host Linux compatível com Kernel LTS (A escolha óbvia geralmente é baseada em Debian ou Red Hat)
+- 2 GB RAM ou superior
+- 2 CPUs ou superior
+- Conectividade de rede total entre todas as máquinas no cluster (Rede pública ou privada é suficiente)
+- Hostname, endereço MAC e `product_uuid` exclusivos para cada nó
+- Para distribuições que não sejam padrão Debian ou Red Hat é importante saber que é necessário garantir que haja um `glibc` ou uma camada de compatibilidade que forneça os símbolos esperados
+- Desabilitar o swap ou criar tolerancia para o kubelet (O comportamento padrão de um kubelet é falhar ao iniciar se a memória swap for detectada em um nó. Isso significa que a swap deve ser desabilitada ou tolerada pelo kubelet)
+- Intalar os pacotes kubeadm, kubelet e kubectl
+
+### Portas
+
+Algumas portas devem ter liberação para que não haja impacto no fornecimento do serviço
+
+#### **Control Plane**
+
+| Protocol  | Direction | Port Range  | Purpose                 | Used By               |
+|-----------|-----------|-------------|-------------------------|-----------------------|
+| TCP       | Inbound   | 6443        | Kubernetes API server   | All                   |
+| TCP       | Inbound   | 2379-2380   | etcd server client API  | kube-apiserver, etcd  |
+| TCP       | Inbound   | 10250       | Kubelet API             | Self, Control plane   |
+| TCP       | Inbound   | 10259       | kube-scheduler          | Self                  |
+| TCP       | Inbound   | 10257       | kube-controller-manager | Self                  |
+
+Embora as portas etcd estejam incluídas na seção do Control Plane, você também pode hospedar seu próprio cluster `etcd` externamente ou em portas personalizadas.
+
+#### **Worker Node**
+
+| Protocol  | Direction | Port Range    | Purpose                 | Used By               |
+|-----------|-----------|---------------|-------------------------|-----------------------|
+| TCP       | Inbound   | 10250         | Kubelet API             | Self, Control plane   |
+| TCP       | Inbound   | 10256         | kube-proxy              | Self, Load balancers  |
+| TCP       | Inbound   | 30000-32767   | NodePort Services †     | All                   |
+
+† Intervalo de portas padrão para NodePort Services .
+
+## Continuando com os primeiros passos
+
+Começarei instalando os pacotes kubeadm, kubelet e kubectl
+
+```shell
+
+sudo apt-get update && sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+
+```
+
+Para definir o `systemd` como driver `cgroup`, edite configuração do Kubelet opção:
 
 ```yaml
 apiVersion: kubelet.config.k8s.io/v1beta1
