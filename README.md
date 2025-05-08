@@ -90,6 +90,73 @@ wget https://github.com/containerd/containerd/releases/download/v2.1.0/container
 tar Cxzvf /usr/local containerd-2.1.0-linux-amd64.tar.gz && install -m 755 runc.amd64 /usr/local/sbin/runc && mkdir -p /opt/cni/bin && tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v1.7.1.tgz
 ```
 
+Também se faz necessário adicionar um serviço de controle ao `systemctl`, para isso precisaremos criar um arquivo `containerd.service` com o seguinte conteúdo:
+
+> containerd.service
+
+```service
+# Copyright The containerd Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[Unit]
+Description=containerd container runtime
+Documentation=https://containerd.io
+After=network.target dbus.service
+
+[Service]
+ExecStartPre=-/sbin/modprobe overlay
+ExecStart=/usr/local/bin/containerd
+
+Type=notify
+Delegate=yes
+KillMode=process
+Restart=always
+RestartSec=5
+
+# Having non-zero Limit*s causes performance problems due to accounting overhead
+# in the kernel. We recommend using cgroups to do container-local accounting.
+LimitNPROC=infinity
+LimitCORE=infinity
+
+# Comment TasksMax if your systemd version does not supports it.
+# Only systemd 226 and above support this version.
+TasksMax=infinity
+OOMScoreAdjust=-999
+
+[Install]
+WantedBy=multi-user.target
+```
+
+para que seja reconhecido como um serviço pelo `systemctl` é necessário que esse arquivo esteja no local `/usr/local/lib/systemd/system/` e para isso garanti que a pasta foi criada com:
+
+```shell
+mkdir -p /usr/local/lib/systemd/system/
+```
+
+uma vez que tenha sido posicionado corretamente `/usr/local/lib/systemd/system/containerd.service` será necessário reiniciar os daemons:
+
+```shell
+systemctl daemon-reload
+systemctl enable --now containerd
+```
+
+para confirmar que funcionou utilizei o comando:
+
+```shell
+systemctl status containerd # Expectativa de estar "enabled" + "running"
+```
+
 Já para o outro pré-requisito onde ue precisei descobrir qual é o sistema `cgroup` nativo da distribuição utilizei o comando abaixo:
 
 ```shell
@@ -151,10 +218,43 @@ Embora as portas etcd estejam incluídas na seção do Control Plane, você tamb
 Começarei instalando os pacotes kubeadm, kubelet e kubectl
 
 ```shell
-
-sudo apt-get update && sudo apt-get install -y apt-transport-https ca-certificates curl gpg
-
+sudo apt-get update && sudo apt-get install -y apt-transport-https ca-certificates curl gpg && sudo mkdir -p -m 755 /etc/apt/keyrings && curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg && echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list && sudo apt-get update && sudo apt-get install -y kubelet kubeadm kubectl && sudo systemctl enable --now kubelet
 ```
+
+O processo de atualização de um cluster Kubernetes é um procedimento delicado e deve ser feito preferencialmente sob o domínio do administrador do cluster, por conta disso, utilizarei esse comando para marcar e travar a versão de instalação utilizada no momento da instalação dos pacotes kubeadm, kubelet e kubectl, posteriormente caso seja necessário, é possível modificar essa configuração para atualizações futuras.
+
+
+
+```shell
+sudo apt-mark hold kubelet kubeadm kubectl
+```
+
+Para organizar os arquivos referentes ao cluster criarei uma pasta chamada cluster que ficará no endereço `/root/cluster`
+
+```shell
+mkdir /root/cluster
+```
+
+Após uma leitura na documentação optei por iniciar o cluster com o `kubeadm` em duas partes, para a primeira iniciarei baixando as imagens necessárias para o provisionamento do Control Plane:
+
+```shell
+kubeadm config images pull
+```
+
+Também criarei um arquivo yaml com as primeiras especificações de configuração do kubeadm no caminho `/root/cluster/kubeadm`
+
+```shell
+mkdir -p /root/cluster/kubeadm && kubeadm config print init-defaults > kubeadm-config.yaml
+```
+
+Após o download das imagens, em teoria podemos, finalmente iniciar o provisionamento do cluster kubernetes
+
+
+## Agora é a hora! Up and Running
+
+
+
+
 
 Para definir o `systemd` como driver `cgroup`, edite configuração do Kubelet opção:
 
