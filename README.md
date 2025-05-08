@@ -249,59 +249,7 @@ mkdir -p /root/cluster/kubeadm && kubeadm config print init-defaults > kubeadm-c
 
 O modelo do arquivo de configurações iniciais precisou ser modificado de acordo com meu ambiente e minhas necessidade e no final ficou ficou assim:
 
-```yaml
-apiVersion: kubeadm.k8s.io/v1beta4
-kind: InitConfiguration
-bootstrapTokens: 
-- groups:
-  - system:bootstrappers:kubeadm:default-node-token
-  ttl: 24h0m0s
-  usages:
-  - signing
-  - authentication
-localAPIEndpoint:
-  advertiseAddress: 172.20.10.221
-  bindPort: 6443
-nodeRegistration:
-  criSocket: unix:///run/containerd/containerd.sock
-  imagePullPolicy: IfNotPresent
-  imagePullSerial: true
-  name: US-KCP-01 
-timeouts:
-  controlPlaneComponentHealthCheck: 4m0s
-  discovery: 5m0s
-  etcdAPICall: 2m0s
-  kubeletHealthCheck: 4m0s
-  kubernetesAPICall: 1m0s
-  tlsBootstrap: 5m0s
-  upgradeManifests: 5m0s
----
-apiVersion: kubeadm.k8s.io/v1beta4
-kind: ClusterConfiguration
-apiServer: {}
-caCertificateValidityPeriod: 87600h0m0s
-certificateValidityPeriod: 8760h0m0s
-certificatesDir: /etc/kubernetes/pki
-clusterName: US-KCP-01 
-controllerManager: {}
-dns: {}
-encryptionAlgorithm: RSA-2048
-etcd:
-  local:
-    dataDir: /var/lib/etcd
-imageRepository: registry.k8s.io
-kubernetesVersion: v1.33.0
-networking:
-  dnsDomain: lab.local
-  serviceSubnet: 10.96.0.0/12
-  podSubnet: 10.244.0.0/16
-proxy: {}
-scheduler: {}
-kubeletConfiguration:
-  apiVersion: kubelet.config.k8s.io/v1beta1
-  kind: KubeletConfiguration
-  cgroupDriver: systemd
-```
+- [kubeadm-config.yaml](/k8s-lab/yaml/kubeadm/kubeadm-config.yaml)
 
 Importante ressaltar que defini o `systemd` como driver `cgroup` no final do yaml, conforme especificado em etapa anterior com o comando `stat -fc %T /sys/fs/cgroup/` a saída desse comando foi `cgroup2fs`, portanto o recomendado nesse caso é que seja utilizado o `systemd` como driver de `cgroup`.
 
@@ -347,12 +295,34 @@ A saída esperada é a seguinte:
 | kube-system | kube-proxy-snnhr                  | 1/1   | Running | 0         | 16m |
 | kube-system | kube-scheduler-us-kcp-01          | 1/1   | Running | 0         | 16m |
 
-## Começando os trabalhos...
+## Começando os trabalhos
 
-Continuando com o que falamos antes, é necessário adicionar um addon de rede para a comunicação entre os pods, escolhemos o `calico` para desempenhar essa tarefa, portanto pretendo tratar da instalação do `calico`.
+Continuando com o que falava antes, é necessário adicionar um addon de rede para a comunicação entre os pods, escolhi o `calico` para desempenhar essa tarefa, para isso são necessários 3 arquivos, são eles:
 
+- [tigera-operator.yaml](/k8s-lab/yaml/calico/tigera-operator.yaml)
+- [crds-operator.yaml](/k8s-lab/yaml/calico/crds-operator.yaml)
+- [calico.yaml](/k8s-lab/yaml/calico/calico.yaml)
 
+cara um desses arquivos possui uma definição em yaml
 
+| NAMESPACE          | NAME                                       | READY | STATUS  | RESTARTS  | AGE   |
+|--------------------|--------------------------------------------|-------|---------|-----------|-------|
+| calico-apiserver   |  calico-apiserver-74c49f54d6-64qqs         | 1/1   | Running | 0         | 4m42s |
+| calico-apiserver   |  calico-apiserver-74c49f54d6-mbc74         | 1/1   | Running | 0         | 4m41s |
+| calico-system      |  calico-kube-controllers-59bb9bf55b-wxtf6  | 1/1   | Running | 0         | 2m50s |
+| calico-system      |  calico-node-tllc2                         | 1/1   | Running | 0         | 107s  |
+| calico-system      |  calico-typha-7ff9569b54-78sqz             | 1/1   | Running | 0         | 2m50s |
+| calico-system      |  csi-node-driver-47hs4                     | 2/2   | Running | 0         | 2m50s |
+| calico-system      |  goldmane-748d458d5d-ckjzd                 | 1/1   | Running | 0         | 2m36s |
+| calico-system      |  whisker-ddcdb5bcf-b8nwg                   | 2/2   | Running | 0         | 102s  |
+| kube-system        |  coredns-674b8bbfcf-cg685                  | 1/1   | Running | 0         | 54m   |
+| kube-system        |  coredns-674b8bbfcf-wvfwm                  | 1/1   | Running | 0         | 54m   |
+| kube-system        |  etcd-us-kcp-01                            | 1/1   | Running | 0         | 54m   |
+| kube-system        |  kube-apiserver-us-kcp-01                  | 1/1   | Running | 0         | 54m   |
+| kube-system        |  kube-controller-manager-us-kcp-01         | 1/1   | Running | 0         | 54m   |
+| kube-system        |  kube-proxy-snnhr                          | 1/1   | Running | 0         | 54m   |
+| kube-system        |  kube-scheduler-us-kcp-01                  | 1/1   | Running | 0         | 54m   |
+| tigera-operator    |  tigera-operator-844669ff44-2qgvq          | 1/1   | Running | 0         | 9m58s |
 
 ```txt
 
