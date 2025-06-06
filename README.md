@@ -303,7 +303,7 @@ Continuando com o que falava antes, é necessário adicionar um addon de rede pa
 - [crds-operator.yaml](/k8s-lab/yaml/calico/crds-operator.yaml)
 - [calico.yaml](/k8s-lab/yaml/calico/calico.yaml)
 
-cara um desses arquivos possui uma definição em yaml
+cada um desses arquivos possui uma definição em yaml
 
 | NAMESPACE          | NAME                                       | READY | STATUS  | RESTARTS  | AGE   |
 |--------------------|--------------------------------------------|-------|---------|-----------|-------|
@@ -324,14 +324,3 @@ cara um desses arquivos possui uma definição em yaml
 | kube-system        |  kube-scheduler-us-kcp-01                  | 1/1   | Running | 0         | 54m   |
 | tigera-operator    |  tigera-operator-844669ff44-2qgvq          | 1/1   | Running | 0         | 9m58s |
 
-```txt
-
-You should now deploy a pod network to the cluster.
-Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
-  https://kubernetes.io/docs/concepts/cluster-administration/addons/
-
-Then you can join any number of worker nodes by running the following on each as root:
-
-kubeadm join 172.20.10.221:6443 --token x25yuq.x3e8jm84cqwkj11e \
-        --discovery-token-ca-cert-hash sha256:b7017a6f87562a8cf6c10a775acf6ac4b36bc693282346b1b6a3e3ff9a59d1fa
-```
